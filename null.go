@@ -29,7 +29,7 @@ func (a *NullAuthenticator) WrapHandler(h http.Handler) http.Handler {
 	return h
 }
 
-// GetAccountForRequest returns an empty `Account` instance.
+// GetAccountForRequest returns a `NotLoggedIn` error.
 func (a *NullAuthenticator) GetAccountForRequest(req *http.Request) (*Account, error) {
-	return nil, &AccountNotExist{}
+	return nil, &NotLoggedIn{}
 }
