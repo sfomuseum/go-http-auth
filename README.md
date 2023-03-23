@@ -12,8 +12,10 @@ This work is nearly settled (at least for a "v1" release) but may still change.
 
 ## Motivation
 
-The `go-http-auth` package aims to provide a simple interface for enforcing authentication in Go-based web applications in a way that those applications don't need to know anything about how authentication happens.
+The `go-http-auth` package aims to provide a simple interface for enforcing authentication in Go-based web applications in a way that those applications don't need to know anyt
+hing about how authentication happens.
 
+```
 // type Authenticator is a simple interface for	enforcing authentication in HTTP handlers.
 type Authenticator interface {
 	// WrapHandler wraps a `http.Handler` with any implementation-specific middleware.
