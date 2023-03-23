@@ -81,4 +81,4 @@ func main (){
 
 Note the use the of the `authenticator.WrapHandler()` method. This is a `net/http` "middleware" handler where implementation-specific logic for checking whether a user is authenticated is expected to happen. That information is expected to be retrievable using the `GetAccountForRequest` method in the subsequent handlers that `WrapHandler` serves. The details of how authentication information is stored and retrieved between handlers is left to individual implmentations.
 
-For concrete examples, have a look at the code for the [NullHandler](null.go) and [NoneHandler}(none.go) which always return a "null" user and a "not authorized" error, respectively.
+For concrete examples, have a look at the code for the [NullHandler](null.go) and [NoneHandler](none.go) which always return a "null" user and a "not authorized" error, respectively.
