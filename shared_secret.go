@@ -7,16 +7,20 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"regexp"
 )
 
-// re_auth is a regular expression used to match HTTP `Authorization` headers.
-var re_auth *regexp.Regexp
+// SHARED_SECRET_HEADER is the name of the HTTP header to check for "shared secret" authentication.
+const SHARED_SECRET_HEADER string = "X-Shared-Secret"
+
+// SHARED_SECRET_ACCOUNT_ID is the account ID used for `Account` instances when shared secret authentication validates.
+const SHARED_SECRET_ACCOUNT_ID int64 = -1
+
+// SHARED_SECRET_ACCOUNT_NAME is the account name used for `Account` instances when shared secret authentication validates.
+const SHARED_SECRET_ACCOUNT_NAME string = "sharedsecret"
 
 func init() {
 	ctx := context.Background()
 	RegisterAuthenticator(ctx, "sharedsecret", NewSharedSecretAuthenticator)
-	re_auth = regexp.MustCompile(`^X-Shared\s+(\w+)`)
 }
 
 // type SharedSecretAuthenticator implements the Authenticator interface to require a simple shared secret be passed
@@ -29,7 +33,7 @@ type SharedSecretAuthenticator struct {
 	logger *log.Logger
 }
 
-// NewSharedSecretAuthenticator implements the Authenticator interface to ensure that requests contain a `X-Shared` HTTP `Authorization`
+// NewSharedSecretAuthenticator implements the Authenticator interface to ensure that requests contain a `X-Shared-Secret` HTTP
 // header configured by 'uri' which is expected to take the form of:
 //
 //	sharedsecret://{SECRET}
@@ -67,7 +71,6 @@ func (a *SharedSecretAuthenticator) WrapHandler(next http.Handler) http.Handler 
 		_, err := a.GetAccountForRequest(req)
 
 		if err != nil {
-			// log.Println(err)
 			http.Error(rsp, "Forbidden", http.StatusForbidden)
 			return
 		}
@@ -79,25 +82,18 @@ func (a *SharedSecretAuthenticator) WrapHandler(next http.Handler) http.Handler 
 	return http.HandlerFunc(fn)
 }
 
-// GetAccountForRequest returns an stub `Account` instance for requests that contain a valid `Authorization: X-Shared` header.
+// GetAccountForRequest returns an stub `Account` instance for requests that contain a valid `X-Shared-Secret` HTTP header.
 func (a *SharedSecretAuthenticator) GetAccountForRequest(req *http.Request) (*Account, error) {
 
-	auth := req.Header.Get("Authorization")
-
-	if !re_auth.MatchString(auth) {
-		return nil, fmt.Errorf("Missing or invalid Authorization header")
-	}
-
-	m := re_auth.FindStringSubmatch(auth)
-	secret := m[1]
+	secret := req.Header.Get(SHARED_SECRET_HEADER)
 
 	if secret != a.secret {
 		return nil, NotAuthorized{}
 	}
 
 	acct := &Account{
-		Id:   -1,
-		Name: "",
+		Id:   SHARED_SECRET_ACCOUNT_ID,
+		Name: SHARED_SECRET_ACCOUNT_NAME,
 	}
 
 	return acct, nil
