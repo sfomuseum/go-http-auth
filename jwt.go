@@ -18,7 +18,7 @@ type JWTAuthenticatorClaims struct {
 	jwt.RegisteredClaims
 }
 
-var re_auth = regexp.MustCompile(`Bearer\s+((?:[a-zA-Z0-9]+)\.(?:[a-zA-Z0-9]+)\.(?:[a-zA-Z0-9]+)$)`)
+var re_auth = regexp.MustCompile(`Bearer\s+((?:[-A-Za-z0-9+/]*={0,3})\.(?:[-A-Za-z0-9+/]*={0,3})\.([-A-Za-z0-9+/]*={0,3}))$`)
 
 func init() {
 	ctx := context.Background()
@@ -109,9 +109,19 @@ func (a *JWTAuthenticator) GetAccountForRequest(req *http.Request) (Account, err
 	m := re_auth.FindStringSubmatch(auth_header)
 	str_token := m[1]
 
-	token, err := jwt.Parse(str_token, func(token *jwt.Token) (interface{}, error) {
+	parse_func := func(token *jwt.Token) (interface{}, error) {
+		slog.Info("WTF", "s", a.secret, "len", len(a.secret))
 		return []byte(a.secret), nil
-	}, jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}))
+	}
+
+	parse_opts := []jwt.ParserOption{
+		jwt.WithValidMethods([]string{
+			jwt.SigningMethodHS256.Alg(),
+		}),
+		jwt.WithPaddingAllowed(),
+	}
+
+	token, err := jwt.Parse(str_token, parse_func, parse_opts...)
 
 	if err != nil {
 		return nil, err

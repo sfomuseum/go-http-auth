@@ -67,6 +67,8 @@ func debugHandler(authenticator auth.Authenticator) http.Handler {
 			}
 		}
 
+		slog.Info("Authentication successful", "name", acct.Name())
+
 		msg := fmt.Sprintf("Hello, %s (%d)", acct.Name(), acct.Id())
 		rsp.Write([]byte(msg))
 		return
