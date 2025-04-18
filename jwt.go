@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -17,7 +18,7 @@ type JWTAuthenticatorClaims struct {
 	jwt.RegisteredClaims
 }
 
-var re_auth = regexp.MustCompile(`Bearer\s+((?:[a-ZA-Z0-9]+)\.(?:[a-ZA-Z0-9]+)\.(?:[a-ZA-Z0-9]+)$)`)
+var re_auth = regexp.MustCompile(`Bearer\s+((?:[a-zA-Z0-9]+)\.(?:[a-zA-Z0-9]+)\.(?:[a-zA-Z0-9]+)$)`)
 
 func init() {
 	ctx := context.Background()
@@ -38,7 +39,7 @@ type JWTAuthenticator struct {
 //
 //	sharedsecret://{SECRET}
 //
-// Where {SECRET} is expected to be the shared secret passed by HTTP requests.
+// Where {SECRET} is expected to be the shared JWT signing secret passed by HTTP requests.
 func NewJWTAuthenticator(ctx context.Context, uri string) (Authenticator, error) {
 
 	u, err := url.Parse(uri)
@@ -66,7 +67,7 @@ func NewJWTAuthenticator(ctx context.Context, uri string) (Authenticator, error)
 	if secret == "" {
 		return nil, fmt.Errorf("Missing or invalid secret")
 	}
-	
+
 	a := &JWTAuthenticator{
 		secret: secret,
 	}
@@ -82,6 +83,7 @@ func (a *JWTAuthenticator) WrapHandler(next http.Handler) http.Handler {
 		_, err := a.GetAccountForRequest(req)
 
 		if err != nil {
+			slog.Error("Failed to derive account", "error", err)
 			http.Error(rsp, "Forbidden", http.StatusForbidden)
 			return
 		}
@@ -100,7 +102,7 @@ func (a *JWTAuthenticator) GetAccountForRequest(req *http.Request) (Account, err
 
 	auth_header := req.Header.Get("Authorization")
 
-	if re_auth.MatchString(auth_header) {
+	if !re_auth.MatchString(auth_header) {
 		return nil, fmt.Errorf("Invalid auth header")
 	}
 
