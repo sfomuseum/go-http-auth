@@ -12,34 +12,40 @@ import (
 	"github.com/sfomuseum/runtimevar"
 )
 
-type JWTAuthenticatorClaims struct {
-	AccountId   int64  `json:"account_id"`
-	AccountName string `json:"account_name"`
-	jwt.RegisteredClaims
-}
-
-var re_auth = regexp.MustCompile(`Bearer\s+((?:[-A-Za-z0-9+/]*={0,3})\.(?:[-A-Za-z0-9+/]*={0,3})\.([-A-Za-z0-9+/]*={0,3}))$`)
+var re_auth = regexp.MustCompile(`Bearer\s+((?:[_\-A-Za-z0-9+/]*={0,3})\.(?:[_\-A-Za-z0-9+/]*={0,3})\.([_\-A-Za-z0-9+/]*={0,3}))$`)
 
 func init() {
 	ctx := context.Background()
 	RegisterAuthenticator(ctx, "jwt", NewJWTAuthenticator)
 }
 
-// type JWTAuthenticator implements the Authenticator interface to require a simple shared secret be passed
-// with all requests. This is not a sophisticated handler. There are no nonces or hashing of requests or anything like
-// that. It is a bare-bones supplementary authentication handler for environments that already implement their own
-// measures of access control.
+// type JWTAuthenticatorClaims are the custom claims for Authorization requests.
+type JWTAuthenticatorClaims struct {
+	// The unique ID associated with this account.
+	AccountId int64 `json:"account_id"`
+	// The name associated with this account.
+	AccountName string `json:"account_name"`
+	jwt.RegisteredClaims
+}
+
+// type JWTAuthenticator implements the Authenticator interface to require a valid JSON Web Token (JWT) be passed
+// with all requests.
 type JWTAuthenticator struct {
 	Authenticator
 	secret string
 }
 
-// NewJWTAuthenticator implements the Authenticator interface to ensure that requests contain a `X-Shared-Secret` HTTP
+// NewJWTAuthenticator implements the Authenticator interface to ensure that requests contain a `Authorization: Bearer {JWT_TOKEN}` HTTP
 // header configured by 'uri' which is expected to take the form of:
 //
-//	sharedsecret://{SECRET}
+//	jwt://{SECRET}
 //
-// Where {SECRET} is expected to be the shared JWT signing secret passed by HTTP requests.
+// Where {SECRET} is expected to be the shared JWT signing secret passed by HTTP requests. Or:
+//
+//	jwt://runtimevar?runtimevar-uri={GOCLOUD_DEV_RUNTIMEVAR_URI}
+//
+// Where {GOCLOUD_DEV_RUNTIMEVAR_URI} is a valid `gocloud.dev/runtimevar` URI used to dereference the JWT signing secret.
+// Under the hood this method using the `github.com/sfomuseum/runtimevar.StringVar` method to dereference runtimevar URIs.
 func NewJWTAuthenticator(ctx context.Context, uri string) (Authenticator, error) {
 
 	u, err := url.Parse(uri)
@@ -95,7 +101,7 @@ func (a *JWTAuthenticator) WrapHandler(next http.Handler) http.Handler {
 	return http.HandlerFunc(fn)
 }
 
-// GetAccountForRequest returns an stub `Account` instance for requests that contain a valid `X-Shared-Secret` HTTP header.
+// GetAccountForRequest returns an stub `Account` instance for requests that contain a valid `Authorization: Bearer {JWT_TOKEN}` HTTP header.
 func (a *JWTAuthenticator) GetAccountForRequest(req *http.Request) (Account, error) {
 
 	var acct Account
@@ -103,6 +109,7 @@ func (a *JWTAuthenticator) GetAccountForRequest(req *http.Request) (Account, err
 	auth_header := req.Header.Get("Authorization")
 
 	if !re_auth.MatchString(auth_header) {
+		slog.Error("Authorization header mismatch", "value", auth_header)
 		return nil, fmt.Errorf("Invalid auth header")
 	}
 
@@ -110,7 +117,6 @@ func (a *JWTAuthenticator) GetAccountForRequest(req *http.Request) (Account, err
 	str_token := m[1]
 
 	parse_func := func(token *jwt.Token) (interface{}, error) {
-		slog.Info("WTF", "s", a.secret, "len", len(a.secret))
 		return []byte(a.secret), nil
 	}
 
@@ -118,10 +124,11 @@ func (a *JWTAuthenticator) GetAccountForRequest(req *http.Request) (Account, err
 		jwt.WithValidMethods([]string{
 			jwt.SigningMethodHS256.Alg(),
 		}),
+		jwt.WithExpirationRequired(),
 		jwt.WithPaddingAllowed(),
 	}
 
-	token, err := jwt.Parse(str_token, parse_func, parse_opts...)
+	token, err := jwt.ParseWithClaims(str_token, &JWTAuthenticatorClaims{}, parse_func, parse_opts...)
 
 	if err != nil {
 		return nil, err
@@ -129,6 +136,14 @@ func (a *JWTAuthenticator) GetAccountForRequest(req *http.Request) (Account, err
 		acct = NewAccount(claims.AccountId, claims.AccountName)
 	} else {
 		return nil, fmt.Errorf("Unknown claims type, cannot proceed")
+	}
+
+	if acct.Id() == 0 {
+		return nil, fmt.Errorf("Missing account ID")
+	}
+
+	if acct.Name() == "" {
+		return nil, fmt.Errorf("Missing account name")
 	}
 
 	return acct, nil
