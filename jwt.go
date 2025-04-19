@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"strings"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/sfomuseum/runtimevar"
@@ -67,7 +68,7 @@ func NewJWTAuthenticator(ctx context.Context, uri string) (Authenticator, error)
 			return nil, fmt.Errorf("Failed to derive secret from runtimevar, %w", err)
 		}
 
-		secret = s
+		secret = strings.TrimSpace(s)
 	}
 
 	if secret == "" {
