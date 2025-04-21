@@ -118,7 +118,7 @@ func (a *JWTAuthenticator) WrapHandler(next http.Handler) http.Handler {
 	return http.HandlerFunc(fn)
 }
 
-// GetAccountForRequest returns an stub `Account` instance for requests that contain a valid `Authorization: Bearer {JWT_TOKEN}` HTTP header.
+// GetAccountForRequest returns an stub `Account` instance for requests that contain a valid `Authorization: Bearer {JWT_TOKEN}` HTTP header (or a custom header if defined in the `JWTAuthenticator` constuctor URI).
 func (a *JWTAuthenticator) GetAccountForRequest(req *http.Request) (Account, error) {
 
 	var acct Account
