@@ -50,6 +50,11 @@ type JWTAuthenticator struct {
 //
 // Where {GOCLOUD_DEV_RUNTIMEVAR_URI} is a valid `gocloud.dev/runtimevar` URI used to dereference the JWT signing secret.
 // Under the hood this method using the `github.com/sfomuseum/runtimevar.StringVar` method to dereference runtimevar URIs.
+//
+// By default a `JWTAuthenticator` instance looks for JWT Bearer tokens in the HTTP "Authorization" header. This behaviour
+// can be customized by passing an "authorization-header" query parameter in 'uri'. For example:
+//
+//	jwt://?authorization-header=X-Custom-AuthHeader
 func NewJWTAuthenticator(ctx context.Context, uri string) (Authenticator, error) {
 
 	u, err := url.Parse(uri)
@@ -81,7 +86,7 @@ func NewJWTAuthenticator(ctx context.Context, uri string) (Authenticator, error)
 
 	authorization_header := AUTHORIZATION_HEADER
 
-	if q.Has("authentication-header") {
+	if q.Has("authorization-header") {
 		authorization_header = q.Get("authorization-header")
 	}
 
