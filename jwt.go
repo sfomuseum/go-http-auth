@@ -13,6 +13,8 @@ import (
 	"github.com/sfomuseum/runtimevar"
 )
 
+const AUTHORIZATION_HEADER string = "Authentication"
+
 var re_auth = regexp.MustCompile(`Bearer\s+((?:[_\-A-Za-z0-9+/]*={0,3})\.(?:[_\-A-Za-z0-9+/]*={0,3})\.([_\-A-Za-z0-9+/]*={0,3}))$`)
 
 func init() {
@@ -33,7 +35,8 @@ type JWTAuthenticatorClaims struct {
 // with all requests.
 type JWTAuthenticator struct {
 	Authenticator
-	secret string
+	secret               string
+	authorization_header string
 }
 
 // NewJWTAuthenticator implements the Authenticator interface to ensure that requests contain a `Authorization: Bearer {JWT_TOKEN}` HTTP
@@ -55,11 +58,12 @@ func NewJWTAuthenticator(ctx context.Context, uri string) (Authenticator, error)
 		return nil, fmt.Errorf("Failed to parse URI, %w", err)
 	}
 
+	q := u.Query()
+
 	secret := u.Host
 
 	if secret == "runtimevar" {
 
-		q := u.Query()
 		runtimevar_uri := q.Get("runtimevar-uri")
 
 		s, err := runtimevar.StringVar(ctx, runtimevar_uri)
@@ -75,8 +79,15 @@ func NewJWTAuthenticator(ctx context.Context, uri string) (Authenticator, error)
 		return nil, fmt.Errorf("Missing or invalid secret")
 	}
 
+	authorization_header := AUTHORIZATION_HEADER
+
+	if q.Has("authentication-header") {
+		authorization_header = q.Get("authorization-header")
+	}
+
 	a := &JWTAuthenticator{
-		secret: secret,
+		secret:               secret,
+		authorization_header: authorization_header,
 	}
 
 	return a, nil
@@ -107,10 +118,10 @@ func (a *JWTAuthenticator) GetAccountForRequest(req *http.Request) (Account, err
 
 	var acct Account
 
-	auth_header := req.Header.Get("Authorization")
+	auth_header := req.Header.Get(a.authorization_header)
 
 	if !re_auth.MatchString(auth_header) {
-		slog.Error("Authorization header mismatch", "value", auth_header)
+		slog.Error("Authorization header mismatch", "header", a.authorization_header, "value", auth_header)
 		return nil, fmt.Errorf("Invalid auth header")
 	}
 
