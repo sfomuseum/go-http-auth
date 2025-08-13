@@ -2,6 +2,10 @@
 
 Go package to provide a simple interface for enforcing authentication in HTTP handlers.
 
+## Deprecation notice
+
+This package has been deprecated and will no longer be updated. It has been replaced by the [aaronland/go-http](https://github.com/aaronland/go-http) package.
+
 ## Documentation
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/sfomuseum/go-http-auth.svg)](https://pkg.go.dev/github.com/sfomuseum/go-http-auth)
